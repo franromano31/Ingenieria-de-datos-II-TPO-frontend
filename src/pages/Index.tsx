@@ -20,7 +20,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Activity className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">MediCare</h1>
+            <h1 className="text-2xl font-bold text-foreground">VidaSana</h1>
           </div>
           <Button onClick={() => navigate('/auth')}>
             Iniciar Sesión
@@ -93,7 +93,7 @@ const Index = () => {
               ¿Listo para comenzar?
             </h3>
             <p className="text-xl text-muted-foreground mb-8">
-              Únete a MediCare y lleva la gestión médica al siguiente nivel
+              Únete a VidaSana y lleva la gestión médica al siguiente nivel
             </p>
             <Button size="lg" onClick={() => navigate('/auth')}>
               Crear Cuenta
@@ -104,7 +104,7 @@ const Index = () => {
 
       <footer className="border-t py-8 px-4 bg-card">
         <div className="container mx-auto text-center text-muted-foreground">
-          <p>© 2024 MediCare. Sistema de Gestión Médica.</p>
+          <p>© 2025 VidaSana. Sistema de Gestión Médica.</p>
         </div>
       </footer>
     </div>
