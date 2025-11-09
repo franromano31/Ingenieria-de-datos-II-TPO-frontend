@@ -12,6 +12,7 @@ import { Activity, Stethoscope } from 'lucide-react';
 const Auth = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { register } = useAuth();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState<'patient' | 'professional'>('patient');
@@ -23,19 +24,50 @@ const Auth = () => {
     const password = formData.get('password') as string;
 
     try {
-      await login(email, password, role);
-      toast({
-        title: 'Inicio de sesión exitoso',
-        description: `Bienvenido ${role === 'patient' ? 'paciente' : 'profesional'}`,
-      });
-      navigate(role === 'patient' ? '/dashboard/patient' : '/dashboard/professional');
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Credenciales incorrectas',
-        variant: 'destructive',
-      });
-    }
+      if (isLogin) {
+        await login(email, password, role);
+        toast({
+          title: 'Inicio de sesión exitoso',
+          description: `Bienvenido ${role === 'patient' ? 'paciente' : 'profesional'}`,
+        });
+        navigate(role === 'patient' ? '/dashboard/patient' : '/dashboard/professional');
+      }} catch (error) {
+        toast({
+          title: 'Error',
+          description: 'Credenciales incorrectas',
+          variant: 'destructive',
+        });
+      }
+
+      try {
+        if (!isLogin) {
+          const registrationData: any = {
+            nombre: formData.get('nombre'),
+            apellido: formData.get('apellido'),
+            email,
+            password,
+          };
+
+          if (role === 'patient') {
+            registrationData.dni = formData.get('dni');
+          } else {
+            registrationData.especialidad = formData.get('especialidad');
+          }
+          console.log('Registration Data:', registrationData);
+          await register(registrationData);
+          toast({
+            title: 'Registro exitoso',
+            description: 'Ahora puedes iniciar sesión con tus credenciales',
+          });
+          setIsLogin(true);
+        }
+      } catch (error: any) {
+        toast({
+          title: 'Error',
+          description: error.message || 'Error al registrarse',
+          variant: 'destructive',
+        });
+      }
   };
 
   return (
@@ -45,7 +77,7 @@ const Auth = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2 mb-4">
               <Activity className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold text-foreground">MediCare</h1>
+              <h1 className="text-3xl font-bold text-foreground">VidaSana</h1>
             </div>
             <h2 className="text-4xl font-bold text-foreground">
               Sistema de Gestión Médica

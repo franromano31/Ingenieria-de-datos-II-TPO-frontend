@@ -4,6 +4,7 @@ import { User } from '@/types';
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string, role: 'patient' | 'professional') => Promise<void>;
+  register: (formData: any) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -61,13 +62,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(mockUser);
   };
 
+  // REGISTRO
+  const register = async (formData: any) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`http://localhost:8000/pacientes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al registrarse');
+      }
+
+      const data = await response.json();
+
+      //Guardar sesión automáticamente tras registrarse
+      //localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      setUser(data.user);
+    } catch (error) {
+      console.error('Error en register:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('user');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, register, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
