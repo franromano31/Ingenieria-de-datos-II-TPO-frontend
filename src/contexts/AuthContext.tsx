@@ -25,41 +25,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string, role: 'patient' | 'professional') => {
-    // Mock authentication - replace with actual API call
-    const mockUser: User = {
-      id: '1',
-      role,
-      data: role === 'patient' 
-        ? {
-            _id: '1',
-            nombre: 'Juan',
-            apellido: 'Pérez',
-            dni: '12345678',
-            fecha_nacimiento: '1990-01-01',
-            contacto: { email, telefono: '555-0123' },
-            historia_clinica: [
-              {
-                fecha: '2024-01-15',
-                diagnostico: 'Consulta general',
-                tratamiento: 'Reposo y medicación'
-              }
-            ],
-            profesional_asignado: 'prof-1',
-            activo: true
-          }
-        : {
-            _id: 'prof-1',
-            nombre: 'Dra. María',
-            apellido: 'González',
-            especialidad: 'Medicina General',
-            email,
-            pacientes_ids: ['1'],
-            activo: true
-          }
-    };
-    
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    setUser(mockUser);
+    try {
+      const response = await fetch(`http://localhost:8000/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, role }),
+      });
+
+      const data = await response.json();
+
+      localStorage.setItem('userId', data.user._id);
+      localStorage.setItem('role', data.user.role);
+
+      setUser(data.user);
+    } catch (error) {
+      console.error('Error en login:', error);
+      throw error;
+    }
   };
 
   // REGISTRO
@@ -81,8 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       //Guardar sesión automáticamente tras registrarse
       //localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      setUser(data.user);
     } catch (error) {
       console.error('Error en register:', error);
       throw error;
