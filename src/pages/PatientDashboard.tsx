@@ -43,8 +43,10 @@ const PatientDashboard = () => {
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("");
   const [turnos, setTurnos] = useState<Turno[]>([]);
+  const [professionalTurno, setProfessionalTurno] = useState<Professional>();
 
   useEffect(() => {
+    // Fetch professionals once on mount so names are available when rendering turnos
     const fetchProfessionals = async () => {
       try {
         const response = await fetch('http://localhost:8000/profesionales');
@@ -63,10 +65,8 @@ const PatientDashboard = () => {
       }
     };
 
-    if (dialogOpen) {
-      fetchProfessionals();
-    }
-  }, [dialogOpen]);
+    fetchProfessionals();
+  }, []);
 
   useEffect(() => {
     const fetchTurnos = async () => {
@@ -148,14 +148,30 @@ const PatientDashboard = () => {
       motivo
     });
 
-    const dateTime = new Date(date);
-    const [hours, minutes] = time.split(':');
-    dateTime.setHours(parseInt(hours), parseInt(minutes));
+    // Build a local datetime from the selected date and time so the saved time
+    // matches the user's selection regardless of the browser's timezone.
+    const selectedDate = date as Date;
+    const [hoursStr, minutesStr] = time.split(':');
+    const hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+
+    // Create a Date using local components (year, month, day, hours, minutes).
+    const localDateTime = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      selectedDate.getDate(),
+      hours,
+      minutes,
+      0
+    );
+
+    // Format without timezone offset so backend receives the local datetime as entered by the user.
+    const fechaLocal = format(localDateTime, "yyyy-MM-dd'T'HH:mm:ss");
 
     const turnoData = {
       paciente_id: user._id,
       profesional_id: selectedProfessionalId,
-      fecha: dateTime.toISOString(),
+      fecha: fechaLocal,
       motivo,
       estado: "pendiente",
       recordatorio_enviado: false
@@ -190,6 +206,7 @@ const PatientDashboard = () => {
       setMotivo('');
       setSelectedProfessionalId(undefined);
     } catch (error) {
+      console.error('Error al crear el turno:', error);
       toast({
         title: "Error",
         description: "No se pudo crear el turno",
@@ -236,29 +253,36 @@ const PatientDashboard = () => {
             <CardContent>
               <div className="space-y-4">
                 {turnos && turnos.length > 0 ? (
-                  turnos.map((turno) => (
+                  turnos.map((turno) => {
+                    const professionalTurno = professionals.find(p => p._id === turno.profesional_id);
+                    return (
                       <div key={turno._id} className="p-4 bg-muted rounded-lg">
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <p className="font-semibold text-foreground">{turno.motivo}</p>
                             <p className="text-sm text-muted-foreground">
-                              Profesional ID: {turno.profesional_id} {/*TODO: agregar endpoint profesional por id, mostrar nombre y apellido en vez de id  */ }
+                              {professionalTurno ? (
+                                `${professionalTurno.nombre} ${professionalTurno.apellido}`
+                              ) : (
+                                `Profesional ID: ${turno.profesional_id}`
+                              )}
                             </p>
                           </div>
-                        <span className={cn(
-                          "px-2 py-1 text-xs rounded-full",
-                          turno.estado === 'confirmado' ? "bg-primary/10 text-primary" :
-                          turno.estado === 'pendiente' ? "bg-yellow-500/10 text-yellow-500" :
-                          "bg-destructive/10 text-destructive"
-                        )}>
-                          {turno.estado.charAt(0).toUpperCase() + turno.estado.slice(1)}
-                        </span>
+                          <span className={cn(
+                            "px-2 py-1 text-xs rounded-full",
+                            turno.estado === 'confirmado' ? "bg-primary/10 text-primary" :
+                            turno.estado === 'pendiente' ? "bg-yellow-500/10 text-yellow-500" :
+                            "bg-destructive/10 text-destructive"
+                          )}>
+                            {turno.estado.charAt(0).toUpperCase() + turno.estado.slice(1)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(turno.fecha), "d 'de' MMMM, yyyy - HH:mm", { locale: es })}
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {format(new Date(turno.fecha), "d 'de' MMMM, yyyy - HH:mm", { locale: es })}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <p className="text-muted-foreground text-sm text-center py-4">No hay turnos programados</p>
                 )}

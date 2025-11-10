@@ -29,7 +29,6 @@ const Auth = () => {
           title: 'Inicio de sesión exitoso',
           description: `Bienvenido ${role === 'patient' ? 'paciente' : 'profesional'}`,
         });
-        console.log('Navigating to dashboard...', role);
         navigate(role === 'patient' ? '/dashboard/patient' : '/dashboard/professional');
       }
     } catch (error: any) {

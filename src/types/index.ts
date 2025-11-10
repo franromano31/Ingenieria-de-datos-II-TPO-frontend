@@ -35,3 +35,10 @@ export interface Turno {
   estado: 'pendiente' | 'confirmado' | 'cancelado' | 'completado';
   recordatorio_enviado: boolean;
 }
+
+export interface User {
+  historia_clinica: boolean;
+  _id: string;
+  role: UserRole;
+  data: Paciente | Profesional;
+}
