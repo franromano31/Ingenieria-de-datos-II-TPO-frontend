@@ -11,14 +11,9 @@ export interface Paciente {
   nombre: string;
   apellido: string;
   dni: string;
-  fecha_nacimiento: string;
-  contacto?: {
-    telefono?: string;
-    email?: string;
-  };
+  email?: string;
   historia_clinica?: HistoriaClinica[];
   profesional_asignado?: string;
-  activo: boolean;
 }
 
 export interface Profesional {

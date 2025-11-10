@@ -23,11 +23,14 @@ const PatientDashboard = () => {
   const [time, setTime] = useState('');
   const [motivo, setMotivo] = useState('');
 
+  console.log("user en dashboard:", user);
+
   if (!user || user.role !== 'patient') {
     return <Navigate to="/auth" />;
   }
 
-  const paciente = user.data as Paciente;
+  const paciente = user as unknown as Paciente;
+  console.log("Paciente en dashboard:", paciente);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -233,22 +236,10 @@ const PatientDashboard = () => {
                   <dt className="text-sm font-medium text-muted-foreground">DNI</dt>
                   <dd className="text-foreground">{paciente.dni}</dd>
                 </div>
-                <div>
-                  <dt className="text-sm font-medium text-muted-foreground">Fecha de Nacimiento</dt>
-                  <dd className="text-foreground">
-                    {new Date(paciente.fecha_nacimiento).toLocaleDateString('es-ES')}
-                  </dd>
-                </div>
-                {paciente.contacto?.email && (
+                {paciente.email && (
                   <div>
                     <dt className="text-sm font-medium text-muted-foreground">Email</dt>
-                    <dd className="text-foreground">{paciente.contacto.email}</dd>
-                  </div>
-                )}
-                {paciente.contacto?.telefono && (
-                  <div>
-                    <dt className="text-sm font-medium text-muted-foreground">Teléfono</dt>
-                    <dd className="text-foreground">{paciente.contacto.telefono}</dd>
+                    <dd className="text-foreground">{paciente.email}</dd>
                   </div>
                 )}
               </dl>

@@ -33,11 +33,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Credenciales incorrectas');
+      }
 
-      localStorage.setItem('userId', data.user._id);
-      localStorage.setItem('role', data.user.role);
+      const userWithRole = { ...data.user, role };
+      localStorage.setItem('user', JSON.stringify(userWithRole));
+      setUser(userWithRole);
 
-      setUser(data.user);
     } catch (error) {
       console.error('Error en login:', error);
       throw error;

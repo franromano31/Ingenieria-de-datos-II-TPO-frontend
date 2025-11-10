@@ -11,8 +11,7 @@ import { Activity, Stethoscope } from 'lucide-react';
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const { register } = useAuth();
+  const { register, login } = useAuth();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [role, setRole] = useState<'patient' | 'professional'>('patient');
@@ -30,11 +29,13 @@ const Auth = () => {
           title: 'Inicio de sesión exitoso',
           description: `Bienvenido ${role === 'patient' ? 'paciente' : 'profesional'}`,
         });
+        console.log('Navigating to dashboard...', role);
         navigate(role === 'patient' ? '/dashboard/patient' : '/dashboard/professional');
-      }} catch (error) {
+      }
+    } catch (error: any) {
         toast({
-          title: 'Error',
-          description: 'Credenciales incorrectas',
+          title: 'Error de autenticación',
+          description: error.message || 'Credenciales incorrectas',
           variant: 'destructive',
         });
       }
@@ -71,6 +72,7 @@ const Auth = () => {
   };
 
   return (
+    
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-6xl grid md:grid-cols-2 gap-8 items-center">
         <div className="space-y-6">
