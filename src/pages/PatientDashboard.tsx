@@ -4,11 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, FileText, LogOut, User, Clock } from 'lucide-react';
 import { Paciente } from '@/types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -16,44 +17,185 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 
+interface Professional {
+  _id: string;
+  nombre: string;
+  apellido: string;
+  especialidad: string;
+}
+
+interface Turno {
+  _id: string;
+  paciente_id: string;
+  profesional_id: string;
+  fecha: string;
+  motivo: string;
+  estado: 'pendiente' | 'confirmado' | 'cancelado';
+  recordatorio_enviado: boolean;
+}
+
 const PatientDashboard = () => {
   const { user, logout } = useAuth();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [date, setDate] = useState<Date>();
   const [time, setTime] = useState('');
   const [motivo, setMotivo] = useState('');
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>("");
+  const [turnos, setTurnos] = useState<Turno[]>([]);
 
-  console.log("user en dashboard:", user);
+  useEffect(() => {
+    const fetchProfessionals = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/profesionales');
+        if (!response.ok) {
+          throw new Error('Error al cargar profesionales');
+        }
+        const data = await response.json();
+        setProfessionals(data);
+      } catch (error) {
+        console.error('Error fetching professionals:', error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los profesionales",
+          variant: "destructive",
+        });
+      }
+    };
+
+    if (dialogOpen) {
+      fetchProfessionals();
+    }
+  }, [dialogOpen]);
+
+  useEffect(() => {
+    const fetchTurnos = async () => {
+      if (!user?._id) {
+        console.log("No user ID available");
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:8000/turnos/paciente/${user._id}`);
+        if (!response.ok) {
+          throw new Error('Error al cargar turnos');
+        }
+        const data = await response.json();
+        console.log("Raw API response:", data);
+        
+        // Always expect an array from the API
+        if (!Array.isArray(data)) {
+          console.error("Expected an array of turnos but got:", typeof data, data);
+          setTurnos([]);
+          return;
+        }
+        
+        // Filter out any invalid entries and ensure they match our Turno interface
+        const turnosArray = data.filter(turno => 
+          turno && 
+          typeof turno === 'object' &&
+          '_id' in turno &&
+          'paciente_id' in turno &&
+          'profesional_id' in turno
+        );
+        
+        console.log("Processed turnos array:", turnosArray, "Length:", turnosArray.length);
+        setTurnos(turnosArray);
+      } catch (error) {
+        console.error('Error fetching turnos:', error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los turnos",
+          variant: "destructive",
+        });
+      }
+    };
+
+    fetchTurnos();
+  }, [user]);
 
   if (!user || user.role !== 'patient') {
     return <Navigate to="/auth" />;
   }
 
   const paciente = user as unknown as Paciente;
-  console.log("Paciente en dashboard:", paciente);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!date || !time || !motivo.trim()) {
+    console.log('Form Data on Submit:', { selectedProfessionalId, date, time, motivo });
+    
+    if (!date || !time || !motivo.trim() || !selectedProfessionalId) {
+      let missingFields = [];
+      if (!selectedProfessionalId) missingFields.push('profesional');
+      if (!date) missingFields.push('fecha');
+      if (!time) missingFields.push('hora');
+      if (!motivo.trim()) missingFields.push('motivo');
+      
       toast({
         title: "Error",
-        description: "Por favor complete todos los campos",
+        description: `Por favor complete los siguientes campos: ${missingFields.join(', ')}`,
         variant: "destructive",
       });
       return;
     }
 
-    // Aquí se enviará al backend cuando esté conectado
-    toast({
-      title: "Turno reservado",
-      description: `Turno solicitado para ${format(date, 'dd/MM/yyyy', { locale: es })} a las ${time}`,
+    // Log the form data for debugging
+    console.log('Form Data:', {
+      professionalId: selectedProfessionalId,
+      date,
+      time,
+      motivo
     });
-    
-    setDialogOpen(false);
-    setDate(undefined);
-    setTime('');
-    setMotivo('');
+
+    const dateTime = new Date(date);
+    const [hours, minutes] = time.split(':');
+    dateTime.setHours(parseInt(hours), parseInt(minutes));
+
+    const turnoData = {
+      paciente_id: user._id,
+      profesional_id: selectedProfessionalId,
+      fecha: dateTime.toISOString(),
+      motivo,
+      estado: "pendiente",
+      recordatorio_enviado: false
+    };
+
+    try {
+      const response = await fetch('http://localhost:8000/turnos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(turnoData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al crear el turno');
+      }
+
+      // Actualizamos la lista de turnos
+      const turnosResponse = await fetch(`http://localhost:8000/turnos/paciente/${user._id}`);
+      const turnosActualizados = await turnosResponse.json();
+      setTurnos(turnosActualizados);
+
+      toast({
+        title: "Turno reservado",
+        description: `Turno solicitado para ${format(date, 'dd/MM/yyyy', { locale: es })} a las ${time}`,
+      });
+      
+      setDialogOpen(false);
+      setDate(undefined);
+      setTime('');
+      setMotivo('');
+      setSelectedProfessionalId(undefined);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo crear el turno",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -93,19 +235,44 @@ const PatientDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-semibold text-foreground">Consulta General</p>
-                      <p className="text-sm text-muted-foreground">Dra. María González</p>
+                {turnos && turnos.length > 0 ? (
+                  turnos.map((turno) => (
+                      <div key={turno._id} className="p-4 bg-muted rounded-lg">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="font-semibold text-foreground">{turno.motivo}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Profesional ID: {turno.profesional_id} {/*TODO: agregar endpoint profesional por id, mostrar nombre y apellido en vez de id  */ }
+                            </p>
+                          </div>
+                        <span className={cn(
+                          "px-2 py-1 text-xs rounded-full",
+                          turno.estado === 'confirmado' ? "bg-primary/10 text-primary" :
+                          turno.estado === 'pendiente' ? "bg-yellow-500/10 text-yellow-500" :
+                          "bg-destructive/10 text-destructive"
+                        )}>
+                          {turno.estado.charAt(0).toUpperCase() + turno.estado.slice(1)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(turno.fecha), "d 'de' MMMM, yyyy - HH:mm", { locale: es })}
+                      </p>
                     </div>
-                    <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
-                      Confirmado
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">15 de Marzo, 2024 - 10:00 AM</p>
-                </div>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm text-center py-4">No hay turnos programados</p>
+                )}
+                <Dialog 
+                  open={dialogOpen} 
+                  onOpenChange={(open) => {
+                    setDialogOpen(open);
+                    if (!open) {
+                      setSelectedProfessionalId("");
+                      setDate(undefined);
+                      setTime('');
+                      setMotivo('');
+                    }
+                  }}>
                   <DialogTrigger asChild>
                     <Button className="w-full" variant="outline">
                       <Calendar className="h-4 w-4 mr-2" />
@@ -121,6 +288,33 @@ const PatientDashboard = () => {
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="professional">Profesional</Label>
+                          <Select 
+                            defaultValue={selectedProfessionalId}
+                            onValueChange={(val) => {
+                              console.log('Selected value:', val);
+                              setSelectedProfessionalId(val);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccione un profesional" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectGroup>
+                                {professionals.map((prof) => (
+                                  <SelectItem 
+                                    key={prof._id} 
+                                    value={prof._id}
+                                  >
+                                    {`${prof.nombre} ${prof.apellido} - ${prof.especialidad}`}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
                         <div className="space-y-2">
                           <Label htmlFor="date">Fecha</Label>
                           <Popover>

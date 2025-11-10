@@ -35,9 +35,3 @@ export interface Turno {
   estado: 'pendiente' | 'confirmado' | 'cancelado' | 'completado';
   recordatorio_enviado: boolean;
 }
-
-export interface User {
-  id: string;
-  role: UserRole;
-  data: Paciente | Profesional;
-}
