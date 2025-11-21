@@ -12,7 +12,8 @@ const ProfessionalDashboard = () => {
     return <Navigate to="/auth" />;
   }
 
-  const profesional = user.data as Profesional;
+  // Extract profesional data from user (may be in user.data or directly in user)
+  const profesional = ((user as any).data || (user as any)) as Profesional | undefined;
 
   // Mock data for appointments
   const appointments = [
@@ -51,8 +52,8 @@ const ProfessionalDashboard = () => {
               <Stethoscope className="h-5 w-5 text-accent" />
             </div>
             <div>
-              <h2 className="font-semibold text-foreground">{profesional.nombre} {profesional.apellido}</h2>
-              <p className="text-sm text-muted-foreground">{profesional.especialidad}</p>
+              <h2 className="font-semibold text-foreground">{profesional?.nombre ?? 'Profesional'} {profesional?.apellido ?? ''}</h2>
+              <p className="text-sm text-muted-foreground">{profesional?.especialidad ?? ''}</p>
             </div>
           </div>
           <Button variant="outline" onClick={logout} className="gap-2">
@@ -77,7 +78,7 @@ const ProfessionalDashboard = () => {
               <div className="flex items-center gap-2">
                 <Users className="h-8 w-8 text-primary" />
                 <span className="text-3xl font-bold text-foreground">
-                  {profesional.pacientes_ids?.length || 0}
+                  {profesional?.pacientes_ids?.length ?? 0}
                 </span>
               </div>
             </CardContent>

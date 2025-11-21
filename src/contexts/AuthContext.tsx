@@ -26,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string, role: 'patient' | 'professional') => {
     try {
+      console.log('Attempting login with:', { email, password, role });
       const response = await fetch(`http://localhost:8000/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
