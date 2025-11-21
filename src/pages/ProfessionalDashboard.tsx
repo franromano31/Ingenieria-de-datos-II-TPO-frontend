@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, Users, Stethoscope, LogOut } from 'lucide-react';
 import { Profesional } from '@/types';
+import { useState, useEffect } from 'react';
 
 const ProfessionalDashboard = () => {
   const { user, logout } = useAuth();
@@ -15,33 +16,84 @@ const ProfessionalDashboard = () => {
   // Extract profesional data from user (may be in user.data or directly in user)
   const profesional = ((user as any).data || (user as any)) as Profesional | undefined;
 
-  // Mock data for appointments
-  const appointments = [
-    {
-      id: '1',
-      paciente: 'Juan Pérez',
-      fecha: '2024-03-15',
-      hora: '10:00',
-      motivo: 'Consulta general',
-      estado: 'confirmado'
-    },
-    {
-      id: '2',
-      paciente: 'Ana García',
-      fecha: '2024-03-15',
-      hora: '11:30',
-      motivo: 'Control de presión',
-      estado: 'pendiente'
-    },
-    {
-      id: '3',
-      paciente: 'Carlos Rodríguez',
-      fecha: '2024-03-16',
-      hora: '09:00',
-      motivo: 'Resultados de estudios',
-      estado: 'confirmado'
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [appointmentsWithPatients, setAppointmentsWithPatients] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAppointments = async () => {
+      if (!profesional?._id) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`http://localhost:8000/turnos/profesional/${profesional._id}`);
+        if (!response.ok) {
+          throw new Error('Error al cargar turnos');
+        }
+        const data = await response.json();
+        console.log('Turnos fetched:', data);
+        
+        // Handle both array and single object response
+        const turnosArray = Array.isArray(data) ? data : [data];
+        setAppointments(turnosArray);
+
+        // Fetch patient details for each turno
+        const appointmentsWithDetails = await Promise.all(
+          turnosArray.map(async (turno) => {
+            try {
+              const pacienteResponse = await fetch(`http://localhost:8000/pacientes/${turno.paciente_id}`);
+              if (pacienteResponse.ok) {
+                const paciente = await pacienteResponse.json();
+                return { ...turno, paciente };
+              }
+              return turno;
+            } catch (error) {
+              console.error('Error fetching paciente:', error);
+              return turno;
+            }
+          })
+        );
+
+        console.log('Appointments with patients:', appointmentsWithDetails);
+        setAppointmentsWithPatients(appointmentsWithDetails);
+      } catch (error) {
+        console.error('Error fetching turnos:', error);
+        setAppointments([]);
+        setAppointmentsWithPatients([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAppointments();
+  }, [profesional?._id]);
+
+  const handleUpdateAppointment = async (appointmentId: string, newStatus: 'confirmado' | 'cancelado') => {
+    try {
+      const response = await fetch(`http://localhost:8000/turnos/${appointmentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al actualizar turno');
+      }
+
+      // Update local state
+      setAppointmentsWithPatients(prev =>
+        prev.map(apt =>
+          apt._id === appointmentId ? { ...apt, estado: newStatus } : apt
+        )
+      );
+
+      console.log(`Turno ${appointmentId} actualizado a ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating appointment:', error);
     }
-  ];
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -91,7 +143,12 @@ const ProfessionalDashboard = () => {
             <CardContent>
               <div className="flex items-center gap-2">
                 <Calendar className="h-8 w-8 text-accent" />
-                <span className="text-3xl font-bold text-foreground">2</span>
+                <span className="text-3xl font-bold text-foreground">
+                  {appointments.filter(a => {
+                    const today = new Date().toISOString().split('T')[0];
+                    return a.fecha.startsWith(today);
+                  }).length}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -103,7 +160,9 @@ const ProfessionalDashboard = () => {
             <CardContent>
               <div className="flex items-center gap-2">
                 <Calendar className="h-8 w-8 text-primary" />
-                <span className="text-3xl font-bold text-foreground">1</span>
+                <span className="text-3xl font-bold text-foreground">
+                  {appointments.filter(a => a.estado === 'pendiente').length}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -120,26 +179,60 @@ const ProfessionalDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {appointments.map((appointment) => (
-                  <div key={appointment.id} className="p-4 bg-muted rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-semibold text-foreground">{appointment.paciente}</p>
-                        <p className="text-sm text-muted-foreground">{appointment.motivo}</p>
+                {isLoading ? (
+                  <p className="text-muted-foreground text-sm text-center py-4">Cargando turnos...</p>
+                ) : appointmentsWithPatients.length > 0 ? (
+                  appointmentsWithPatients.map((appointment) => (
+                    <div key={appointment._id} className="p-4 bg-muted rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <p className="font-semibold text-foreground">{appointment.motivo}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {appointment.paciente ? (
+                              `${appointment.paciente.nombre} ${appointment.paciente.apellido}`
+                            ) : (
+                              `Paciente ID: ${appointment.paciente_id}`
+                            )}
+                          </p>
+                        </div>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          appointment.estado === 'confirmado' 
+                            ? 'bg-accent/10 text-accent' 
+                            : appointment.estado === 'pendiente'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-destructive/10 text-destructive'
+                        }`}>
+                          {appointment.estado}
+                        </span>
                       </div>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        appointment.estado === 'confirmado' 
-                          ? 'bg-accent/10 text-accent' 
-                          : 'bg-primary/10 text-primary'
-                      }`}>
-                        {appointment.estado}
-                      </span>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(appointment.fecha).toLocaleDateString('es-ES')}
+                      </p>
+                      {appointment.estado === 'pendiente' && (
+                        <div className="flex gap-2 mt-3">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleUpdateAppointment(appointment._id, 'confirmado')}
+                            className="flex-1"
+                          >
+                            Aprobar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleUpdateAppointment(appointment._id, 'cancelado')}
+                            className="flex-1"
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(appointment.fecha).toLocaleDateString('es-ES')} - {appointment.hora}
-                    </p>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm text-center py-4">No hay turnos programados</p>
+                )}
               </div>
             </CardContent>
           </Card>
